@@ -4,7 +4,7 @@ import math
 
 # a list of "vectors" (x, y, angle in degrees)
 # ROUTE = [(-2,4,180), (2,4,0), (2,-3,90), (-5,-6,240), (-6, -7, 160), (-7,-1,80)]
-ROUTE = [(0,0,0), (2,0,-180)]
+ROUTE = [(0,0,0), (1,1,90)]
 
 
 full_path = []

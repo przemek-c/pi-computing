@@ -26,7 +26,7 @@ DEFAULT_UART_PORT = '/dev/ttyAMA0'  # Adjust if your RPi serial port is differen
 ROBOT_START_POINT = (0, 0, 0)  # Assuming robot starts at origin 
 TURNING_RADIUS = 3  # Example turning radius in meters, adjust as needed
 
-#1.30m in 4 seconds
+#1.30m in 4 seconds2
 
 # --- 1. Terminal Communication ---
 def get_terminal_input():
