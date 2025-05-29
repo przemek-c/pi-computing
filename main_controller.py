@@ -20,13 +20,15 @@ except ImportError as e:
     sys.exit(1)
 '''
 # --- Constants ---
-FORWARD_VELOCITY = 2  # units/second
-BACKWARD_VELOCITY = 1 # units/second
+FORWARD_VELOCITY = 3  # dm/second
+BACKWARD_VELOCITY = 1 # dm/second
 DEFAULT_UART_PORT = '/dev/ttyAMA0'  # Adjust if your RPi serial port is different
 ROBOT_START_POINT = (0, 0, 0)  # Assuming robot starts at origin 
 TURNING_RADIUS = 3  # Example turning radius in meters, adjust as needed
 
-#1.30m in 4 seconds2
+# 1.30m in 4 seconds gives forward velocity of 0.325 m/s and 1.17 km/h
+# but robot needs int numbers for velocity, so we use 3 m/s
+
 
 # --- 1. Terminal Communication ---
 def get_terminal_input():
