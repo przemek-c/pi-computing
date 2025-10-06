@@ -20,15 +20,16 @@ except ImportError as e:
     sys.exit(1)
 '''
 # --- Constants ---
-FORWARD_VELOCITY = 3  # dm/second
-BACKWARD_VELOCITY = 1 # dm/second
+FORWARD_VELOCITY = 0.215 # to calculate trajectory 0.27 na podlodze
+BACKWARD_VELOCITY = 0.25 # should ran with different PWM value to calculate actual velocity
 DEFAULT_UART_PORT = '/dev/ttyAMA0'  # Adjust if your RPi serial port is different
 ROBOT_START_POINT = (0, 0, 0)  # Assuming robot starts at origin 
-TURNING_RADIUS = 3  # Example turning radius in meters, adjust as needed
+TURNING_RADIUS = 0.57  # Example turning radius in meters, adjust as needed
 
-# 1.30m in 4 seconds gives forward velocity of 0.325 m/s and 1.17 km/h
-# but robot needs int numbers for velocity, so we use 3 m/s
-
+'''
+    1.30m in 4 seconds gives forward velocity of 0.325 m/s and 1.17 km/h
+    but robot needs int numbers for velocity, so we used 3 dm/s 
+'''
 
 # --- 1. Terminal Communication ---
 def get_terminal_input():
@@ -163,9 +164,11 @@ def communicate_with_robot(path_df, uart_port, use_controller_flag):
             # Map DataFrame values to UART command parameters
             # Assumes rs.Steering enums are defined in reeds_shepp
             if row['steering'] == rs.Steering.LEFT:
-                steering_char = 'L'
-            elif row['steering'] == rs.Steering.RIGHT:
+                # steering_char = 'L'
                 steering_char = 'R'
+            elif row['steering'] == rs.Steering.RIGHT:
+                # steering_char = 'R'
+                steering_char = 'L'
             else:  # rs.Steering.STRAIGHT or other
                 steering_char = 'S'
             
@@ -173,6 +176,8 @@ def communicate_with_robot(path_df, uart_port, use_controller_flag):
             gear_char = 'F' if row['gear'] == rs.Gear.FORWARD else ('B' if row['gear'] == rs.Gear.BACKWARD else 'N')
             
             velocity_int = int(row['velocity'])
+            # bc of troubles with uart communication, we sent random fixed value
+            # velocity_int = 3 
             duration_ms_int = int(row['duration_ms'])
 
             print(f"Sending: Steering={steering_char}, Gear={gear_char}, Velocity={velocity_int}, Duration={duration_ms_int}ms, UseController={use_controller_flag}")
@@ -190,7 +195,7 @@ def communicate_with_robot(path_df, uart_port, use_controller_flag):
             # do we calculate duration of all path segments?
             # or just the first one?
             
-            command_duration_seconds = duration_ms_int / 1000.0
+            command_duration_seconds = (duration_ms_int / 1000.0) + 1 # Adding buffer time to ensure we read all responses
             
             while (time.monotonic() - start_read_time) < command_duration_seconds:
                 if uart_comm.serial_port.in_waiting > 0:
@@ -218,6 +223,10 @@ def communicate_with_robot(path_df, uart_port, use_controller_flag):
                             print(f"Index error parsing robot response parts: {parts}, Error: {ie}")
 
                 time.sleep(0.01) # Small delay to prevent busy-waiting
+            
+            # Add delay after each segment is sent
+            uart_comm.send_command(steering='N', gear='N', velocity=0, use_controller=0)
+            time.sleep(1)  # 1 second delay between segments
 
         print("All commands sent. Sending STOP command.")
         # For STOP command, typically controller might be disengaged, sending 0.
@@ -390,10 +399,10 @@ def main():
     robot_responses_df = communicate_with_robot(path_df, DEFAULT_UART_PORT, use_controller_flag)
 
     # 5. Plot data from robot
-    if not robot_responses_df.empty:
-        plot_robot_data(robot_responses_df)
-    else:
-        print("No data received from the robot to plot.")
+    #if not robot_responses_df.empty:
+    #    plot_robot_data(robot_responses_df)
+    #else:
+    #    print("No data received from the robot to plot.")
 
     print("Robot Control Application finished.")
 
