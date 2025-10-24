@@ -92,3 +92,7 @@ def create_path_dataframe(full_path, forward_vel, backward_vel):
         return None
 
 # ...existing code...
+
+# to send velocity over UART need to multiply by 100 and convert to int
+velocity_int = int(row['velocity'] * 100)  # Zmiana: wysyłaj prędkość w cm/s jako dwucyfrową wartość int
+            # ...existing code...
