@@ -74,8 +74,8 @@ def plot_velocity_over_time(robot_responses_df):
     
     print("Plotting velocity over time...")
     plt.figure(figsize=(10, 6))
-    plt.plot(robot_responses_df['timestamp_ms'] / 1000, robot_responses_df['desired_velocity'] / 1000, label='Prędkość zadana', marker='.')
-    plt.plot(robot_responses_df['timestamp_ms'] / 1000, robot_responses_df['actual_velocity'] / 1000, label='Prędkość obliczona', marker='.')
+    plt.plot(robot_responses_df['timestamp_ms'] / 1000, robot_responses_df['desired_velocity'] / 1000, label='Prędkość zadana', marker='.', linestyle='None')
+    plt.plot(robot_responses_df['timestamp_ms'] / 1000, robot_responses_df['actual_velocity'] / 1000, label='Prędkość obliczona', marker='.', linestyle='None')
     plt.xlabel('Czas (s)')
     plt.ylabel('Prędkość (m/s)')
     plt.legend()
@@ -98,11 +98,11 @@ def main():
         # Send forward command without controller
         forward_df = send_command_and_collect_logs(
             uart_comm,
-            steering='S',  # Right
+            steering='S',  # Straight
             gear='F',      # Forward
-            velocity=0.2*10,
-            use_controller=1,  # No controller
-            duration_seconds=5
+            velocity=0.25*100,
+            use_controller=0,  # With controller
+            duration_seconds=3
         )
         
         # Send stop command
@@ -117,11 +117,10 @@ def main():
         # Combine data (if needed, but here we only have forward data)
         all_responses_df = forward_df
         
-        # Calculate average speed
-        # if not all_responses_df.empty:
+        # Calculate average speed (arithmetic mean)
         average_speed = (all_responses_df['actual_velocity'] / 1000).mean()
-        print(f"Average speed: {average_speed:.3f} m/s")
-        
+        print(f"Average speed (arithmetic mean): {average_speed:.3f} m/s")
+
         # Plot velocity
         plot_velocity_over_time(all_responses_df)
         

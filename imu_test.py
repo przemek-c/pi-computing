@@ -100,11 +100,11 @@ def main():
         # Send a command to start logging (e.g., forward with no controller to keep motor running and logging)
         imu_df = send_command_and_collect_logs(
             uart_comm,
-            steering='N',  # Right
+            steering='L',  # Left
             gear='F',      # Forward (or 'N' for neutral if you want no movement)
             velocity=FIXED_VELOCITY,  # 0 for no movement, or small value
             use_controller=0,  # No controller
-            duration_seconds=7
+            duration_seconds=50
         )
         
         # Send stop command

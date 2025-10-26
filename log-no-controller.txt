@@ -1,0 +1,135 @@
+adam@raspberrypi:~/whole-app$ /bin/python3 /home/adam/whole-app/main_controller.py
+Starting Robot Control Application...
+Enter target coordinates (x, y, angle, use_controller (0 or 1)) separated by commas, or 'q' to quit: 1,0,0,0
+Target received: x=1.0, y=0.0, angle=0.0, use_controller=0
+Generating path from (0, 0, 0) to (1.7, 0.0, 0.0)...
+[{ Steering: STRAIGHT   Gear: FORWARD   distance: 1.7 }]
+Creating DataFrame from path objects...
+            steering          gear  distance  velocity
+0  Steering.STRAIGHT  Gear.FORWARD       1.7      0.75
+DataFrame created successfully:
+            steering          gear  distance  velocity  duration_s  duration_ms
+0  Steering.STRAIGHT  Gear.FORWARD       1.7      0.75        1.36       1360.0
+Initializing UART communication on port /dev/ttyAMA0...
+Sending: Steering=S, Gear=F, Velocity=7, Duration=1359ms, UseController=0
+Sending UART message: [[S:S,G:F,V:7,C:0]
+Sending UART message: [[S:N,G:N,V:0,C:0]
+All commands sent. Sending STOP command.
+Sending UART message: [[S:N,G:N,V:0,C:0]
+Closing UART communication.
+Robot Control Application finished.
+adam@raspberrypi:~/whole-app$ /bin/python3 /home/adam/whole-app/main_controller.py
+Starting Robot Control Application...
+Enter target coordinates (x, y, angle, use_controller (0 or 1)) separated by commas, or 'q' to quit: 0.6,0.6,90,0
+Target received: x=0.6, y=0.6, angle=90.0, use_controller=0
+Generating path from (0, 0, 0) to (1.0, 1.0, 90.0)...
+[{ Steering: LEFT       Gear: FORWARD   distance: 1.57 }, { Steering: STRAIGHT  Gear: FORWARDdistance: 0.0 }]
+Creating DataFrame from path objects...
+        steering          gear  distance  velocity
+0  Steering.LEFT  Gear.FORWARD  1.570796       0.5
+DataFrame created successfully:
+        steering          gear  distance  velocity  duration_s  duration_ms
+0  Steering.LEFT  Gear.FORWARD  1.570796       0.5    1.884956  1884.955592
+Initializing UART communication on port /dev/ttyAMA0...
+Sending: Steering=R, Gear=F, Velocity=5, Duration=1884ms, UseController=0
+Sending UART message: [[S:R,G:F,V:5,C:0]
+Sending UART message: [[S:N,G:N,V:0,C:0]
+All commands sent. Sending STOP command.
+Sending UART message: [[S:N,G:N,V:0,C:0]
+Closing UART communication.
+Robot Control Application finished.
+adam@raspberrypi:~/whole-app$ /bin/python3 /home/adam/whole-app/main_controller.py
+Starting Robot Control Application...
+Enter target coordinates (x, y, angle, use_controller (0 or 1)) separated by commas, or 'q' to quit: 0,0.2,0,0
+Target received: x=0.0, y=0.2, angle=0.0, use_controller=0
+Generating path from (0, 0, 0) to (0.0, 0.3, 0.0)...
+[{ Steering: RIGHT      Gear: FORWARD   distance: 0.35 }, { Steering: LEFT      Gear: BACKWARDdistance: 0.4 }, { Steering: RIGHT      Gear: BACKWARD  distance: 0.4 }, { Steering: LEFT    Gear: FORWARD    distance: 0.35 }]
+Creating DataFrame from path objects...
+         steering           gear  distance  velocity
+0  Steering.RIGHT   Gear.FORWARD  0.349121       1.2
+1   Steering.LEFT  Gear.BACKWARD  0.404308       1.2
+2  Steering.RIGHT  Gear.BACKWARD  0.404308       1.2
+3   Steering.LEFT   Gear.FORWARD  0.349121       1.2
+DataFrame created successfully:
+         steering           gear  distance  velocity  duration_s  duration_ms
+0  Steering.RIGHT   Gear.FORWARD  0.349121       1.2    0.174560   174.560272
+1   Steering.LEFT  Gear.BACKWARD  0.404308       1.2    0.202154   202.153794
+2  Steering.RIGHT  Gear.BACKWARD  0.404308       1.2    0.202154   202.153794
+3   Steering.LEFT   Gear.FORWARD  0.349121       1.2    0.174560   174.560272
+Initializing UART communication on port /dev/ttyAMA0...
+Sending: Steering=L, Gear=F, Velocity=12, Duration=174ms, UseController=0
+Sending UART message: [[S:L,G:F,V:12,C:0]
+Sending UART message: [[S:N,G:N,V:0,C:0]
+Sending: Steering=R, Gear=B, Velocity=12, Duration=202ms, UseController=0
+Sending UART message: [[S:R,G:B,V:12,C:0]
+Sending UART message: [[S:N,G:N,V:0,C:0]
+Sending: Steering=L, Gear=B, Velocity=12, Duration=202ms, UseController=0
+Sending UART message: [[S:L,G:B,V:12,C:0]
+Sending UART message: [[S:N,G:N,V:0,C:0]
+Sending: Steering=R, Gear=F, Velocity=12, Duration=174ms, UseController=0
+Sending UART message: [[S:R,G:F,V:12,C:0]
+Sending UART message: [[S:N,G:N,V:0,C:0]
+All commands sent. Sending STOP command.
+Sending UART message: [[S:N,G:N,V:0,C:0]
+Closing UART communication.
+Robot Control Application finished.
+adam@raspberrypi:~/whole-app$ /bin/python3 /home/adam/whole-app/main_controller.py
+Starting Robot Control Application...
+Enter target coordinates (x, y, angle, use_controller (0 or 1)) separated by commas, or 'q' to quit: 2,1,0,0
+Target received: x=2.0, y=1.0, angle=0.0, use_controller=0
+Generating path from (0, 0, 0) to (3.3, 1.7, 0.0)...
+[{ Steering: LEFT       Gear: FORWARD   distance: 0.56 }, { Steering: STRAIGHT  Gear: FORWARDdistance: 2.64 }, { Steering: RIGHT      Gear: FORWARD   distance: 0.56 }]
+Creating DataFrame from path objects...
+            steering          gear  distance  velocity
+0      Steering.LEFT  Gear.FORWARD  0.557313       0.4
+1  Steering.STRAIGHT  Gear.FORWARD  2.641969       1.1
+2     Steering.RIGHT  Gear.FORWARD  0.557313       0.4
+DataFrame created successfully:
+            steering          gear  distance  velocity  duration_s  duration_ms
+0      Steering.LEFT  Gear.FORWARD  0.557313       0.4    0.835970    835.96993
+1  Steering.STRAIGHT  Gear.FORWARD  2.641969       1.1    1.441074   1441.07398
+2     Steering.RIGHT  Gear.FORWARD  0.557313       0.4    0.835970    835.96993
+Initializing UART communication on port /dev/ttyAMA0...
+Sending: Steering=R, Gear=F, Velocity=4, Duration=835ms, UseController=0
+Sending UART message: [[S:R,G:F,V:4,C:0]
+Sending UART message: [[S:N,G:N,V:0,C:0]
+Sending: Steering=S, Gear=F, Velocity=11, Duration=1441ms, UseController=0
+Sending UART message: [[S:S,G:F,V:11,C:0]
+Sending UART message: [[S:N,G:N,V:0,C:0]
+Sending: Steering=L, Gear=F, Velocity=4, Duration=835ms, UseController=0
+Sending UART message: [[S:L,G:F,V:4,C:0]
+Sending UART message: [[S:N,G:N,V:0,C:0]
+All commands sent. Sending STOP command.
+Sending UART message: [[S:N,G:N,V:0,C:0]
+Closing UART communication.
+Robot Control Application finished.
+adam@raspberrypi:~/whole-app$ /bin/python3 /home/adam/whole-app/main_controller.py
+Starting Robot Control Application...
+Enter target coordinates (x, y, angle, use_controller (0 or 1)) separated by commas, or 'q' to quit: 2,1,0,0
+Target received: x=2.0, y=1.0, angle=0.0, use_controller=0
+Generating path from (0, 0, 0) to (3.3, 1.7, 0.0)...
+[{ Steering: LEFT       Gear: FORWARD   distance: 0.56 }, { Steering: STRAIGHT  Gear: FORWARDdistance: 2.64 }, { Steering: RIGHT      Gear: FORWARD   distance: 0.56 }]
+Creating DataFrame from path objects...
+            steering          gear  distance  velocity
+0      Steering.LEFT  Gear.FORWARD  0.557313       0.4
+1  Steering.STRAIGHT  Gear.FORWARD  2.641969       1.1
+2     Steering.RIGHT  Gear.FORWARD  0.557313       0.4
+DataFrame created successfully:
+            steering          gear  distance  velocity  duration_s  duration_ms
+0      Steering.LEFT  Gear.FORWARD  0.557313       0.4    0.835970    835.96993
+1  Steering.STRAIGHT  Gear.FORWARD  2.641969       1.1    1.441074   1441.07398
+2     Steering.RIGHT  Gear.FORWARD  0.557313       0.4    0.835970    835.96993
+Initializing UART communication on port /dev/ttyAMA0...
+Sending: Steering=R, Gear=F, Velocity=4, Duration=835ms, UseController=0
+Sending UART message: [[S:R,G:F,V:4,C:0]
+Sending UART message: [[S:N,G:N,V:0,C:0]
+Sending: Steering=S, Gear=F, Velocity=11, Duration=1441ms, UseController=0
+Sending UART message: [[S:S,G:F,V:11,C:0]
+Sending UART message: [[S:N,G:N,V:0,C:0]
+Sending: Steering=L, Gear=F, Velocity=4, Duration=835ms, UseController=0
+Sending UART message: [[S:L,G:F,V:4,C:0]
+Sending UART message: [[S:N,G:N,V:0,C:0]
+All commands sent. Sending STOP command.
+Sending UART message: [[S:N,G:N,V:0,C:0]
+Closing UART communication.
+Robot Control Application finished.

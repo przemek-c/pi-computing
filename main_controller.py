@@ -20,11 +20,16 @@ except ImportError as e:
     sys.exit(1)
 '''
 # --- Constants ---
-FORWARD_VELOCITY = 0.215 # to calculate trajectory 0.27 na podlodze
-BACKWARD_VELOCITY = 0.25 # should ran with different PWM value to calculate actual velocity
+FORWARD_VELOCITY = 0.9
+# 0.38 for straight line, but 0.25, for turning
+# work best: 0.35 # 0.2*2.6 # to calculate trajectory 0.27 na podlodze
+TURNING_VELOCITY = 0.3
+BACKWARD_VELOCITY = 0.3 # 0.18*2.6 # should ran with different PWM value to calculate actual velocity
+# 0.2
 DEFAULT_UART_PORT = '/dev/ttyAMA0'  # Adjust if your RPi serial port is different
 ROBOT_START_POINT = (0, 0, 0)  # Assuming robot starts at origin 
-TURNING_RADIUS = 0.57  # Example turning radius in meters, adjust as needed
+TURNING_RADIUS = 0.6
+# 0.77 # 0.55  # Example turning radius in meters, adjust as needed
 
 '''
     1.30m in 4 seconds gives forward velocity of 0.325 m/s and 1.17 km/h
@@ -52,7 +57,8 @@ def get_terminal_input():
                     print("Invalid value for use_controller. Must be 0 or 1.")
                     continue
                 print(f"Target received: x={x}, y={y}, angle={angle}, use_controller={use_controller}")
-                return x, y, angle, use_controller
+                # scalling for turning radius 0.77m
+                return round(x*(1/TURNING_RADIUS), 1), round(y*(1/TURNING_RADIUS), 1), angle, use_controller
             else:
                 print("Invalid format. Expected: x, y, angle, use_controller (e.g., 1.5, 2.0, 90, 1)")
         except ValueError:
@@ -85,7 +91,7 @@ def generate_path_segment(start_point, end_point):
         print(f"Error during path generation: {e}")
         return None
 
-def create_path_dataframe(full_path, forward_vel, backward_vel):
+def create_path_dataframe(full_path, forward_vel, backward_vel, turning_vel):
     """
     Converts the list of path objects from Reeds-Shepp into a Pandas DataFrame
     and adds velocity and duration columns.
@@ -93,6 +99,7 @@ def create_path_dataframe(full_path, forward_vel, backward_vel):
         full_path: List of path objects (from generate_path_segment).
         forward_vel: Forward velocity.
         backward_vel: Backward velocity.
+        turning_vel: Turning velocity.
     Returns:
         A Pandas DataFrame with path details, or None if input is invalid.
     """
@@ -101,31 +108,54 @@ def create_path_dataframe(full_path, forward_vel, backward_vel):
         return None
 
     print("Creating DataFrame from path objects...")
+
     try:
         # Each 'p' in full_path is expected to be an object with
         # attributes like p.steering, p.gear, p.param (distance)
         df = pd.DataFrame([
-            {'steering': p.steering, 'gear': p.gear, 'distance': p.param}
+            {'steering': p.steering, 'gear': p.gear, 'distance': 0.0 if abs(p.param) < 1e-10 else p.param}
             for p in full_path
         ])
+
+        # Remove rows where distance is 0 (invalid or zero-length segments)
+        df = df[df['distance'] != 0].reset_index(drop=True)
 
         if df.empty:
             print("DataFrame is empty after processing path objects.")
             return None
+        
+        # Set velocity according to gear and steering:
+        # - Straight segments use forward_vel or backward_vel depending on gear
+        # - Turning segments use turning_vel (same for forward/backward here)
+        df['velocity'] = 0.0
 
-        # Add velocity column based on gear
-        # Assumes rs.Gear.FORWARD and rs.Gear.BACKWARD are defined in reeds_shepp module
-        df['velocity'] = df['gear'].apply(
-            lambda g: forward_vel if g == rs.Gear.FORWARD else (backward_vel if g == rs.Gear.BACKWARD else 0)
-        )
+        straight_mask = df['steering'] == rs.Steering.STRAIGHT
+        forward_mask = df['gear'] == rs.Gear.FORWARD
+        backward_mask = df['gear'] == rs.Gear.BACKWARD
+
+        # straight forward/backward
+        df.loc[straight_mask & forward_mask, 'velocity'] = forward_vel
+        df.loc[straight_mask & backward_mask, 'velocity'] = backward_vel
+
+        # turning (left/right) use turning velocity
+        df.loc[~straight_mask, 'velocity'] = turning_vel
+
+        # debugging print
+        print(df.head())
 
         # Calculate and add duration column
         # Avoid division by zero if velocity is 0 (e.g., for neutral gear or if path segment has 0 velocity)
-        # Modify distance by turning radius for duration calculation
+        # For straight segments, distance is scaled back because of previous scaling for turning radius
+        # For curved segments, multiply by turning radius to get real-world arc length
         df['duration_s'] = df.apply(
-            lambda row: (row['distance'] * TURNING_RADIUS) / row['velocity'] if row['velocity'] != 0 else 0,
+            lambda row: 
+            (row['distance'] * TURNING_RADIUS / row['velocity'] if row['velocity'] != 0 else 0),
             axis=1
         )
+
+        # debugging print
+        # print(df.head())
+
         df['duration_ms'] = df['duration_s'] * 1000
 
         print("DataFrame created successfully:")
@@ -175,7 +205,7 @@ def communicate_with_robot(path_df, uart_port, use_controller_flag):
             # Assumes rs.Gear enums are defined in reeds_shepp
             gear_char = 'F' if row['gear'] == rs.Gear.FORWARD else ('B' if row['gear'] == rs.Gear.BACKWARD else 'N')
             
-            velocity_int = int(row['velocity'])
+            velocity_int = int(row['velocity']*10)
             # bc of troubles with uart communication, we sent random fixed value
             # velocity_int = 3 
             duration_ms_int = int(row['duration_ms'])
@@ -200,7 +230,7 @@ def communicate_with_robot(path_df, uart_port, use_controller_flag):
             while (time.monotonic() - start_read_time) < command_duration_seconds:
                 if uart_comm.serial_port.in_waiting > 0:
                     response_line = uart_comm.serial_port.readline().decode('ascii', errors='ignore').strip()
-                    print(f"Robot response: {response_line}")
+                    # print(f"Robot response: {response_line}")
                     parts = response_line.split(',')
                     # Based on C printf: %lu,%.3f,%.3f,%.3f,%.3f,%.3f,%.0f,%ld
                     # HAL_GetTick(), desiredV, actualV, error, output, gyro_z, (optional extra_val)
@@ -388,12 +418,15 @@ def main():
     if not path_objects:
         print("Failed to generate path. Exiting.")
         return
+    
+    print(path_objects)
 
     # 3. Create DataFrame from path
-    path_df = create_path_dataframe(path_objects, FORWARD_VELOCITY, BACKWARD_VELOCITY)
+    path_df = create_path_dataframe(path_objects, FORWARD_VELOCITY, BACKWARD_VELOCITY, TURNING_VELOCITY)
     if path_df is None or path_df.empty:
         print("Failed to create path DataFrame. Exiting.")
         return
+    
 
     # 4. Communicate with robot
     robot_responses_df = communicate_with_robot(path_df, DEFAULT_UART_PORT, use_controller_flag)
