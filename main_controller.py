@@ -204,79 +204,72 @@ def communicate_with_robot(path_df, uart_port, use_controller_flag):
     robot_log_data = []
 
     try:
+        SEGMENT_TIMEOUT_SECONDS = 60  # Timeout for waiting for segment completion signal
+
         for index, row in path_df.iterrows():
             # Map DataFrame values to UART command parameters
-            # Assumes rs.Steering enums are defined in reeds_shepp
             if row['steering'] == rs.Steering.LEFT:
-                # steering_char = 'L'
                 steering_char = 'R'
             elif row['steering'] == rs.Steering.RIGHT:
-                # steering_char = 'R'
                 steering_char = 'L'
-            else:  # rs.Steering.STRAIGHT or other
+            else:
                 steering_char = 'S'
             
-            # Assumes rs.Gear enums are defined in reeds_shepp
             gear_char = 'F' if row['gear'] == rs.Gear.FORWARD else ('B' if row['gear'] == rs.Gear.BACKWARD else 'N')
             
-            velocity_int = int(row['velocity']*10)
-
+            # velocity_int = int(row['velocity']*10)
             duration_ms_int = int(row['duration_ms'])
+            lift_char = 'N'
 
-            lift_char = 'N'  # 'U' for up, 'D' for down
-
-            print(f"Sending: Steering={steering_char}, Gear={gear_char}, Velocity={velocity_int}, UseController={use_controller_flag}, Lifting={lift_char}")
-            # NOTE: uart.UARTCommunication.send_command will need to be updated
-            # to accept the use_controller_flag parameter.
+            print(f"Sending command for segment {index}: Steering={steering_char}, Gear={gear_char}, Velocity={velocity_int}, Duration={duration_ms_int}, UseController={use_controller_flag}, Lifting={lift_char}")
+            # Send command with duration to STM
             uart_comm.send_command(
                 steering=steering_char,
                 gear=gear_char,
-                velocity=velocity_int,
-                use_controller=use_controller_flag,
+                # velocity=velocity_int,
+                duration=duration_ms_int,  # Assuming uart.py is updated to accept duration
+                # use_controller=use_controller_flag,
                 lifting='N'
             )
             
-            start_read_time = time.monotonic()
-            
-            command_duration_seconds = (duration_ms_int / 1000.0) + 0.5 # Adding buffer time to ensure we read all responses
-            
-            while (time.monotonic() - start_read_time) < command_duration_seconds:
+            # Wait for "1" signal from STM indicating segment completion
+            start_wait_time = time.monotonic()
+            segment_completed = False
+            while (time.monotonic() - start_wait_time) < SEGMENT_TIMEOUT_SECONDS:
                 if uart_comm.serial_port.in_waiting > 0:
                     response_line = uart_comm.serial_port.readline().decode('ascii', errors='ignore').strip()
-                    # print(f"Robot response: {response_line}")
-                    parts = response_line.split(',')
-                    # Based on C printf: %lu,%.3f,%.3f,%.3f,%.3f,%.3f,%.0f,%ld
-                    # HAL_GetTick(), desiredV, actualV, error, output, gyro_z, (optional extra_val)
-                    if len(parts) >= 6: # Minimum expected parts
-                        try:
-                            parsed_data = {
-                                'timestamp_ms': int(parts[0]),
-                                'desired_velocity': float(parts[1]),
-                                'actual_velocity': float(parts[2]),
-                                'error': float(parts[3]),
-                                'output': float(parts[4]),
-                                'gyro_z': float(parts[5])
-                            }
-                            # if len(parts) == 7: # As per Plan.md C code, there's a 7th %ld
-                            #     parsed_data['extra_val'] = int(parts[6])
-                            robot_log_data.append(parsed_data)
-                        except ValueError as ve:
-                            print(f"Could not parse robot response parts: {parts}, Error: {ve}")
-                        except IndexError as ie:
-                            print(f"Index error parsing robot response parts: {parts}, Error: {ie}")
-
-                time.sleep(0.01) # Small delay to prevent busy-waiting
+                    if response_line == "1":
+                        print(f"Segment {index} completed.")
+                        segment_completed = True
+                        break
+                    else:
+                        # Parse as data log if not "1"
+                        parts = response_line.split(',')
+                        if len(parts) >= 6:
+                            try:
+                                parsed_data = {
+                                    'timestamp_ms': int(parts[0]),
+                                    'desired_velocity': float(parts[1]),
+                                    'actual_velocity': float(parts[2]),
+                                    'error': float(parts[3]),
+                                    'output': float(parts[4]),
+                                    'gyro_z': float(parts[5])
+                                }
+                                robot_log_data.append(parsed_data)
+                            except ValueError as ve:
+                                print(f"Could not parse robot response parts: {parts}, Error: {ve}")
+                            except IndexError as ie:
+                                print(f"Index error parsing robot response parts: {parts}, Error: {ie}")
+                time.sleep(0.01)
             
+            if not segment_completed:
+                print(f"Timeout waiting for segment {index} completion. Aborting.")
+                break  # Or handle error
             
-            print(f"Real time for segment: {time.monotonic() - start_read_time}")
-            # Add delay after each segment is sent
-            uart_comm.send_command(steering='N', gear='N', velocity=0, use_controller=0, lifting='N')
-            time.sleep(1)  # 1 second delay between segments
-
-        print("All commands sent. Sending STOP command.")
-        # For STOP command, typically controller might be disengaged, sending 0.
-        # Or, it could be the last state. Let's send 0 for simplicity.
-        uart_comm.send_command(steering='N', gear='N', velocity=0, use_controller=0, lifting='N')
+            print(f"Time waited for segment {index}: {time.monotonic() - start_wait_time}")
+        
+        print("All segments completed. Sending STOP command.")
+        uart_comm.send_command(steering='N', gear='N', velocity=0, duration=0, use_controller=0, lifting='N')
 
     except Exception as e:
         print(f"An error occurred during robot communication: {e}")
