@@ -7,9 +7,10 @@ import uart
 DEFAULT_UART_PORT = '/dev/ttyAMA0'  # Adjust if your RPi serial port is different
 FIXED_VELOCITY = 0  # No movement, just to trigger logging
 DURATION_SECONDS = 10  # Collect IMU data for 10 seconds
+# lifting='N'  # Neutral lifting
 
 # --- Function to Send Command and Collect IMU Logs ---
-def send_command_and_collect_logs(uart_comm, steering, gear, velocity, use_controller, duration_seconds):
+def send_command_and_collect_logs(uart_comm, steering, gear, velocity, use_controller, duration_seconds, lifting):
     """
     Sends a command to the robot and collects IMU logs for the specified duration.
     Args:
@@ -27,7 +28,8 @@ def send_command_and_collect_logs(uart_comm, steering, gear, velocity, use_contr
         steering=steering,
         gear=gear,
         velocity=velocity,
-        use_controller=use_controller
+        use_controller=use_controller,
+        lifting='N'  # Neutral lifting
     )
     
     robot_log_data = []
@@ -77,7 +79,7 @@ def plot_imu_data(robot_responses_df):
     
     print("Plotting IMU gyro Z over time...")
     plt.figure(figsize=(10, 6))
-    plt.plot(robot_responses_df['timestamp_ms']/1000, robot_responses_df['gyro_z_dps'], label='Gyro Z (dps)', marker='.', color='blue')
+    plt.plot(robot_responses_df['timestamp_ms']/1000, robot_responses_df['gyro_z_dps'], label='Gyro Z (dps)', marker='.', color='blue', linestyle='None')
     plt.xlabel('Czas (s)')
     plt.ylabel('Obrót w osi Z (stopnie na sekundę)')
     # plt.legend()
@@ -104,7 +106,8 @@ def main():
             gear='F',      # Forward (or 'N' for neutral if you want no movement)
             velocity=FIXED_VELOCITY,  # 0 for no movement, or small value
             use_controller=0,  # No controller
-            duration_seconds=50
+            duration_seconds=50,
+            lifting='N'  # Neutral
         )
         
         # Send stop command
@@ -113,7 +116,8 @@ def main():
             steering='N',  # None
             gear='N',      # None
             velocity=0,
-            use_controller=0
+            use_controller=0,
+            lifting='N'  # Neutral
         )
         
         # Calculate average gyro Z

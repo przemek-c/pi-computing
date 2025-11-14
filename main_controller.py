@@ -20,21 +20,29 @@ except ImportError as e:
     sys.exit(1)
 '''
 # --- Constants ---
-FORWARD_VELOCITY = 0.9
-# 0.38 for straight line, but 0.25, for turning
-# work best: 0.35 # 0.2*2.6 # to calculate trajectory 0.27 na podlodze
-TURNING_VELOCITY = 0.3
-BACKWARD_VELOCITY = 0.3 # 0.18*2.6 # should ran with different PWM value to calculate actual velocity
-# 0.2
+# New velocities for different move types and distances
+# Short distance: < 0.4m, Long distance: >= 0.4m
+FORWARD_STRAIGHT_SHORT_VELOCITY = 6 
+FORWARD_STRAIGHT_LONG_VELOCITY = 0.8  
+
+FORWARD_LEFT_SHORT_VELOCITY = 1.1  
+FORWARD_LEFT_LONG_VELOCITY = 0.45  
+
+FORWARD_RIGHT_SHORT_VELOCITY = 1.1  
+FORWARD_RIGHT_LONG_VELOCITY = 0.45
+
+BACKWARD_STRAIGHT_SHORT_VELOCITY = 1.0  
+BACKWARD_STRAIGHT_LONG_VELOCITY = 0.65  
+
+BACKWARD_LEFT_SHORT_VELOCITY = 0.7  
+BACKWARD_LEFT_LONG_VELOCITY = 0.45  
+
+BACKWARD_RIGHT_SHORT_VELOCITY = 0.7  
+BACKWARD_RIGHT_LONG_VELOCITY = 0.45  
+
 DEFAULT_UART_PORT = '/dev/ttyAMA0'  # Adjust if your RPi serial port is different
 ROBOT_START_POINT = (0, 0, 0)  # Assuming robot starts at origin 
 TURNING_RADIUS = 0.6
-# 0.77 # 0.55  # Example turning radius in meters, adjust as needed
-
-'''
-    1.30m in 4 seconds gives forward velocity of 0.325 m/s and 1.17 km/h
-    but robot needs int numbers for velocity, so we used 3 dm/s 
-'''
 
 # --- 1. Terminal Communication ---
 def get_terminal_input():
@@ -91,7 +99,7 @@ def generate_path_segment(start_point, end_point):
         print(f"Error during path generation: {e}")
         return None
 
-def create_path_dataframe(full_path, forward_vel, backward_vel, turning_vel):
+def create_path_dataframe(full_path):
     """
     Converts the list of path objects from Reeds-Shepp into a Pandas DataFrame
     and adds velocity and duration columns.
@@ -124,22 +132,28 @@ def create_path_dataframe(full_path, forward_vel, backward_vel, turning_vel):
             print("DataFrame is empty after processing path objects.")
             return None
         
-        # Set velocity according to gear and steering:
-        # - Straight segments use forward_vel or backward_vel depending on gear
-        # - Turning segments use turning_vel (same for forward/backward here)
-        df['velocity'] = 0.0
+        # Add velocity column based on gear, steering, and distance
+        # Assumes rs.Gear and rs.Steering enums are defined in reeds_shepp module
+        def get_velocity(gear, steering, distance):
+            is_short = distance < 0.4
+            if gear == rs.Gear.FORWARD:
+                if steering == rs.Steering.STRAIGHT:
+                    return FORWARD_STRAIGHT_SHORT_VELOCITY if is_short else FORWARD_STRAIGHT_LONG_VELOCITY
+                elif steering == rs.Steering.LEFT:
+                    return FORWARD_LEFT_SHORT_VELOCITY if is_short else FORWARD_LEFT_LONG_VELOCITY
+                elif steering == rs.Steering.RIGHT:
+                    return FORWARD_RIGHT_SHORT_VELOCITY if is_short else FORWARD_RIGHT_LONG_VELOCITY
+            elif gear == rs.Gear.BACKWARD:
+                if steering == rs.Steering.STRAIGHT:
+                    return BACKWARD_STRAIGHT_SHORT_VELOCITY if is_short else BACKWARD_STRAIGHT_LONG_VELOCITY
+                elif steering == rs.Steering.LEFT:
+                    return BACKWARD_LEFT_SHORT_VELOCITY if is_short else BACKWARD_LEFT_LONG_VELOCITY
+                elif steering == rs.Steering.RIGHT:
+                    return BACKWARD_RIGHT_SHORT_VELOCITY if is_short else BACKWARD_RIGHT_LONG_VELOCITY
+            return 0  # Default for neutral or unknown
 
-        straight_mask = df['steering'] == rs.Steering.STRAIGHT
-        forward_mask = df['gear'] == rs.Gear.FORWARD
-        backward_mask = df['gear'] == rs.Gear.BACKWARD
-
-        # straight forward/backward
-        df.loc[straight_mask & forward_mask, 'velocity'] = forward_vel
-        df.loc[straight_mask & backward_mask, 'velocity'] = backward_vel
-
-        # turning (left/right) use turning velocity
-        df.loc[~straight_mask, 'velocity'] = turning_vel
-
+        df['velocity'] = df.apply(lambda row: get_velocity(row['gear'], row['steering'], row['distance']), axis=1)
+        
         # debugging print
         print(df.head())
 
@@ -206,26 +220,25 @@ def communicate_with_robot(path_df, uart_port, use_controller_flag):
             gear_char = 'F' if row['gear'] == rs.Gear.FORWARD else ('B' if row['gear'] == rs.Gear.BACKWARD else 'N')
             
             velocity_int = int(row['velocity']*10)
-            # bc of troubles with uart communication, we sent random fixed value
-            # velocity_int = 3 
+
             duration_ms_int = int(row['duration_ms'])
 
-            print(f"Sending: Steering={steering_char}, Gear={gear_char}, Velocity={velocity_int}, Duration={duration_ms_int}ms, UseController={use_controller_flag}")
+            lift_char = 'N'  # 'U' for up, 'D' for down
+
+            print(f"Sending: Steering={steering_char}, Gear={gear_char}, Velocity={velocity_int}, UseController={use_controller_flag}, Lifting={lift_char}")
             # NOTE: uart.UARTCommunication.send_command will need to be updated
             # to accept the use_controller_flag parameter.
             uart_comm.send_command(
                 steering=steering_char,
                 gear=gear_char,
                 velocity=velocity_int,
-                use_controller=use_controller_flag
-                # duration=duration_ms_int
+                use_controller=use_controller_flag,
+                lifting='N'
             )
             
             start_read_time = time.monotonic()
-            # do we calculate duration of all path segments?
-            # or just the first one?
             
-            command_duration_seconds = (duration_ms_int / 1000.0) + 1 # Adding buffer time to ensure we read all responses
+            command_duration_seconds = (duration_ms_int / 1000.0) + 0.5 # Adding buffer time to ensure we read all responses
             
             while (time.monotonic() - start_read_time) < command_duration_seconds:
                 if uart_comm.serial_port.in_waiting > 0:
@@ -254,14 +267,16 @@ def communicate_with_robot(path_df, uart_port, use_controller_flag):
 
                 time.sleep(0.01) # Small delay to prevent busy-waiting
             
+            
+            print(f"Real time for segment: {time.monotonic() - start_read_time}")
             # Add delay after each segment is sent
-            uart_comm.send_command(steering='N', gear='N', velocity=0, use_controller=0)
+            uart_comm.send_command(steering='N', gear='N', velocity=0, use_controller=0, lifting='N')
             time.sleep(1)  # 1 second delay between segments
 
         print("All commands sent. Sending STOP command.")
         # For STOP command, typically controller might be disengaged, sending 0.
         # Or, it could be the last state. Let's send 0 for simplicity.
-        uart_comm.send_command(steering='N', gear='N', velocity=0, use_controller=0)
+        uart_comm.send_command(steering='N', gear='N', velocity=0, use_controller=0, lifting='N')
 
     except Exception as e:
         print(f"An error occurred during robot communication: {e}")
@@ -422,7 +437,7 @@ def main():
     print(path_objects)
 
     # 3. Create DataFrame from path
-    path_df = create_path_dataframe(path_objects, FORWARD_VELOCITY, BACKWARD_VELOCITY, TURNING_VELOCITY)
+    path_df = create_path_dataframe(path_objects)
     if path_df is None or path_df.empty:
         print("Failed to create path DataFrame. Exiting.")
         return
@@ -436,6 +451,23 @@ def main():
     #    plot_robot_data(robot_responses_df)
     #else:
     #    print("No data received from the robot to plot.")
+
+    # 6. Lifting operation
+    '''
+    user_lift = input("Is it safe to lift forks? (y/n): ")
+
+     if user_lift.lower() == 'y':
+        uart_comm = uart.UARTCommunication(port=DEFAULT_UART_PORT)
+        uart_comm.send_command(
+            steering='N',  # None
+            gear='N',      # None
+            velocity=0,
+            use_controller=0,
+            lifting='U'
+        )
+    else:
+        print("Lifting operation aborted.")
+    '''
 
     print("Robot Control Application finished.")
 

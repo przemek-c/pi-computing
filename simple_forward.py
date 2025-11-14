@@ -27,7 +27,8 @@ def send_command_and_collect_logs(uart_comm, steering, gear, velocity, use_contr
         steering=steering,
         gear=gear,
         velocity=velocity,
-        use_controller=use_controller
+        use_controller=use_controller,
+        lifting='N'
     )
     
     robot_log_data = []
@@ -79,7 +80,6 @@ def plot_velocity_over_time(robot_responses_df):
     plt.xlabel('Czas (s)')
     plt.ylabel('Prędkość (m/s)')
     plt.legend()
-    # plt.title('Prędkość w czasie')
     plt.grid(True)
     plt.savefig("velocity_plot.png")
     print("Plot saved as 'velocity_plot.png'.")
@@ -100,9 +100,9 @@ def main():
             uart_comm,
             steering='S',  # Straight
             gear='F',      # Forward
-            velocity=0.25*100,
-            use_controller=0,  # With controller
-            duration_seconds=3
+            velocity=0.5*100,
+            use_controller=1,  # With controller
+            duration_seconds=20
         )
         
         # Send stop command
@@ -111,7 +111,8 @@ def main():
             steering='N',  # None
             gear='N',      # None
             velocity=0,
-            use_controller=0
+            use_controller=0,
+            lifting='N'
         )
         
         # Combine data (if needed, but here we only have forward data)

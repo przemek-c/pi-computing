@@ -12,7 +12,7 @@ class UARTCommunication:
             timeout=1
         )
 
-    def send_command(self, steering, gear, velocity, use_controller):
+    def send_command(self, steering, gear, velocity, use_controller, lifting):
         """
         Send a formatted command message  
         steering: 'L' or 'R' (Left/Right)  
@@ -22,7 +22,7 @@ class UARTCommunication:
         don't need duration either I think: int (time in milliseconds)  
         """
         # Added an extra '[' at the start to ensure it's present
-        message = f"[[S:{steering},G:{gear},V:{velocity},C:{use_controller}]\n"
+        message = f"[[S:{steering},G:{gear},V:{velocity},C:{use_controller},L:{lifting}]\n"
         print(f"Sending UART message: {message.strip()}")  # Print to terminal
         
         # Ensure proper encoding and that the message starts with '['
