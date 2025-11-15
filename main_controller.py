@@ -125,6 +125,9 @@ def create_path_dataframe(full_path):
             for p in full_path
         ])
 
+        # debugging print
+        print(df.head())
+
         # Remove rows where distance is 0 (invalid or zero-length segments)
         df = df[df['distance'] != 0].reset_index(drop=True)
 
@@ -132,6 +135,9 @@ def create_path_dataframe(full_path):
             print("DataFrame is empty after processing path objects.")
             return None
         
+        # debugging print
+        print(df.head())
+
         # Add velocity column based on gear, steering, and distance
         # Assumes rs.Gear and rs.Steering enums are defined in reeds_shepp module
         def get_velocity(gear, steering, distance):
@@ -157,10 +163,13 @@ def create_path_dataframe(full_path):
         # debugging print
         print(df.head())
 
-        # Calculate and add duration column
-        # Avoid division by zero if velocity is 0 (e.g., for neutral gear or if path segment has 0 velocity)
-        # For straight segments, distance is scaled back because of previous scaling for turning radius
-        # For curved segments, multiply by turning radius to get real-world arc length
+        '''
+        Calculate and add duration column
+        Avoid division by zero if velocity is 0 (e.g., for neutral gear or if path segment has 0 velocity)
+        For straight segments, distance is scaled back because of previous scaling for turning radius
+        For curved segments, multiply by turning radius to get real-world arc length
+        '''
+
         df['duration_s'] = df.apply(
             lambda row: 
             (row['distance'] * TURNING_RADIUS / row['velocity'] if row['velocity'] != 0 else 0),
@@ -168,7 +177,7 @@ def create_path_dataframe(full_path):
         )
 
         # debugging print
-        # print(df.head())
+        print(df.head())
 
         df['duration_ms'] = df['duration_s'] * 1000
 
@@ -221,7 +230,7 @@ def communicate_with_robot(path_df, uart_port, use_controller_flag):
             duration_ms_int = int(row['duration_ms'])
             lift_char = 'N'
 
-            print(f"Sending command for segment {index}: Steering={steering_char}, Gear={gear_char}, Velocity={velocity_int}, Duration={duration_ms_int}, UseController={use_controller_flag}, Lifting={lift_char}")
+            print(f"Sending command for segment {index}: Steering={steering_char}, Gear={gear_char}, Duration={duration_ms_int}, Lifting={lift_char}")
             # Send command with duration to STM
             uart_comm.send_command(
                 steering=steering_char,
@@ -269,7 +278,7 @@ def communicate_with_robot(path_df, uart_port, use_controller_flag):
             print(f"Time waited for segment {index}: {time.monotonic() - start_wait_time}")
         
         print("All segments completed. Sending STOP command.")
-        uart_comm.send_command(steering='N', gear='N', velocity=0, duration=0, use_controller=0, lifting='N')
+        uart_comm.send_command(steering='N', gear='N', duration=0, lifting='N')
 
     except Exception as e:
         print(f"An error occurred during robot communication: {e}")
