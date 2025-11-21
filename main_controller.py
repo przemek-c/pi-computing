@@ -208,6 +208,7 @@ def communicate_with_robot(path_df, uart_port):
     # uart.UARTCommunication is expected from uart.py
     uart_comm = uart.UARTCommunication(port=uart_port)
     robot_log_data = []
+    segment_distances = []  # List to store traveled distances for each segment
 
     try:
         SEGMENT_TIMEOUT_SECONDS = 60  # Timeout for waiting for segment completion signal
@@ -247,6 +248,25 @@ def communicate_with_robot(path_df, uart_port):
                     if response_line == "1":
                         print(f"Segment {index} completed.")
                         segment_completed = True
+                        # Read the traveled distance from the next UART message
+                        time.sleep(0.01)  # Small delay to ensure distance message is available
+                        if uart_comm.serial_port.in_waiting > 0:
+                            distance_line = uart_comm.serial_port.readline().decode('ascii', errors='ignore').strip()
+                            if distance_line.startswith("Distance: "):
+                                try:
+                                    distance_str = distance_line.split(": ")[1]
+                                    distance = int(distance_str)/1000  # Scalled back to meters
+                                    segment_distances.append(distance)
+                                    print(f"Traveled distance for segment {index}: {distance}")
+                                except (ValueError, IndexError) as e:
+                                    print(f"Failed to parse distance for segment {index}: {distance_line}, Error: {e}")
+                                    segment_distances.append(None)  # Append None if parsing fails
+                            else:
+                                print(f"Unexpected distance message for segment {index}: {distance_line}")
+                                segment_distances.append(None)
+                        else:
+                            print(f"No distance message received for segment {index}")
+                            segment_distances.append(None)
                         break
                     else:
                         # Parse as data log if not "1"
@@ -276,6 +296,9 @@ def communicate_with_robot(path_df, uart_port):
         
         print("All segments completed. Sending STOP command.")
         uart_comm.send_command(steering='N', gear='N', duration=0, lifting='N')
+        
+        # Print summary of distances
+        print("Segment distances:", segment_distances)
 
     except Exception as e:
         print(f"An error occurred during robot communication: {e}")
