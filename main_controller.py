@@ -52,25 +52,21 @@ def get_terminal_input():
     """
     while True:
         try:
-            user_input = input("Enter target coordinates (x, y, angle, use_controller (0 or 1)) separated by commas, or 'q' to quit: ")
+            user_input = input("Enter target coordinates (x, y, angle) separated by commas, or 'q' to quit: ")
             if user_input.lower() == 'q':
                 return None
             parts = user_input.split(',')
-            if len(parts) == 4:
+            if len(parts) == 3:
                 x = float(parts[0].strip())
                 y = float(parts[1].strip())
                 angle = float(parts[2].strip())
-                use_controller = int(parts[3].strip())
-                if use_controller not in [0, 1]:
-                    print("Invalid value for use_controller. Must be 0 or 1.")
-                    continue
-                print(f"Target received: x={x}, y={y}, angle={angle}, use_controller={use_controller}")
+                print(f"Target received: x={x}, y={y}, angle={angle}")
                 # scalling for turning radius 0.77m
-                return round(x*(1/TURNING_RADIUS), 1), round(y*(1/TURNING_RADIUS), 1), angle, use_controller
+                return round(x*(1/TURNING_RADIUS), 1), round(y*(1/TURNING_RADIUS), 1), angle
             else:
-                print("Invalid format. Expected: x, y, angle, use_controller (e.g., 1.5, 2.0, 90, 1)")
+                print("Invalid format. Expected: x, y, angle (e.g., 1.5, 2.0, 90)")
         except ValueError:
-            print("Invalid input. Please ensure you enter numbers for coordinates, angle, and 0 or 1 for use_controller.")
+            print("Invalid input. Please ensure you enter numbers for coordinates and angle.")
         except Exception as e:
             print(f"An error occurred during input: {e}")
 
@@ -126,7 +122,7 @@ def create_path_dataframe(full_path):
         ])
 
         # debugging print
-        print(df.head())
+        # print(df.head())
 
         # Remove rows where distance is 0 (invalid or zero-length segments)
         df = df[df['distance'] != 0].reset_index(drop=True)
@@ -135,8 +131,10 @@ def create_path_dataframe(full_path):
             print("DataFrame is empty after processing path objects.")
             return None
         
+        df['distance'] = df['distance'] * TURNING_RADIUS # Scale back to real-world distance
+        
         # debugging print
-        print(df.head())
+        # print(df.head())
 
         # Add velocity column based on gear, steering, and distance
         # Assumes rs.Gear and rs.Steering enums are defined in reeds_shepp module
@@ -161,7 +159,7 @@ def create_path_dataframe(full_path):
         df['velocity'] = df.apply(lambda row: get_velocity(row['gear'], row['steering'], row['distance']), axis=1)
         
         # debugging print
-        print(df.head())
+        # print(df.head())
 
         '''
         Calculate and add duration column
@@ -172,12 +170,12 @@ def create_path_dataframe(full_path):
 
         df['duration_s'] = df.apply(
             lambda row: 
-            (row['distance'] * TURNING_RADIUS / row['velocity'] if row['velocity'] != 0 else 0),
+            (row['distance'] / row['velocity'] if row['velocity'] != 0 else 0),
             axis=1
         )
 
         # debugging print
-        print(df.head())
+        # print(df.head())
 
         df['duration_ms'] = df['duration_s'] * 1000
 
@@ -193,13 +191,12 @@ def create_path_dataframe(full_path):
         return None
 
 # --- 3. Robot Communication ---
-def communicate_with_robot(path_df, uart_port, use_controller_flag):
+def communicate_with_robot(path_df, uart_port):
     """
     Sends commands from the path DataFrame to the robot via UART and logs responses.
     Args:
         path_df: Pandas DataFrame with path commands.
         uart_port: The serial port for UART communication.
-        use_controller_flag: Integer (0 or 1) to indicate if MCU should use controller.
     Returns:
         A Pandas DataFrame of robot responses, or an empty DataFrame if no data.
     """
@@ -275,7 +272,7 @@ def communicate_with_robot(path_df, uart_port, use_controller_flag):
                 print(f"Timeout waiting for segment {index} completion. Aborting.")
                 break  # Or handle error
             
-            print(f"Time waited for segment {index}: {time.monotonic() - start_wait_time}")
+            # print(f"Time waited for segment {index}: {time.monotonic() - start_wait_time}")
         
         print("All segments completed. Sending STOP command.")
         uart_comm.send_command(steering='N', gear='N', duration=0, lifting='N')
@@ -427,7 +424,7 @@ def main():
         print("User quit. Exiting application.")
         return
 
-    target_x, target_y, target_angle, use_controller_flag = target_input_tuple
+    target_x, target_y, target_angle = target_input_tuple
 
     # 2. Generate path segment
     # Assuming the robot always starts from a fixed point for each new command sequence
@@ -446,7 +443,7 @@ def main():
     
 
     # 4. Communicate with robot
-    robot_responses_df = communicate_with_robot(path_df, DEFAULT_UART_PORT, use_controller_flag)
+    robot_responses_df = communicate_with_robot(path_df, DEFAULT_UART_PORT)
 
     # 5. Plot data from robot
     #if not robot_responses_df.empty:
